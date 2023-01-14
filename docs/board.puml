@@ -1,0 +1,63 @@
+@startuml Kalah
+
+skinparam Style strictuml
+skinparam Linetype ortho
+
+together {
+    object "A1 : House" as ha1 {
+        seeds = 6
+        controlledBy = A
+    }
+
+    object "A2 : House" as ha2 {
+        seeds = 6
+        controlledBy = A
+    }
+
+    object "A N+1 : House" as han1 {
+        seeds = 6
+        controlledBy = A
+    }
+}
+
+together {
+    object "B1 : House" as hb1 {
+        seeds = 6
+        controlledBy = B
+    }
+
+    object "B2 : House" as hb2 {
+        seeds = 6
+        controlledBy = B
+    }
+
+    object "B N+1 : House" as hbn1 {
+        seeds = 6
+        controlledBy = B
+    }
+}
+
+object "A : Store" as sa {
+    seeds = 0
+    controlledBy = A
+}
+
+object "B : Store" as sb {
+    seeds = 0
+    controlledBy = B
+}
+
+ha1 -right-> ha2: next
+ha2 -right-> han1: next
+han1 -right-> sa: next
+sa -up-> hb1: next
+hb1 -left-> hb2: next
+hb2 -left-> hbn1: next
+hbn1 -left-> sb: next
+sb -down-> ha1: next
+
+ha1 <-up-> hbn1: opposite
+ha2 <-up-> hb2: opposite
+han1 <-up-> hb1: opposite
+
+@enduml

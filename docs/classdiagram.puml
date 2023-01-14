@@ -1,0 +1,90 @@
+@startuml Kalah
+
+' left to right direction
+
+!theme plain
+
+skinparam Style strictuml
+skinparam Linetype ortho
+skinparam Ranksep 20
+skinparam Nodesep 120
+skinparam Handwritten true
+hide empty members
+hide circle
+
+class Game {
+    -houses: Integer {frozen}
+    -seeds: Integer {frozen}
+    --
+    +play (position: String)
+    +winner (): Player [0..1] {query}
+    ~accept (pit: Pit)
+    ~switchPlayer ()
+    ~setState (state: GameState)
+    --
+    -- {/store-a = self.pits->at(middle)}
+    -- {/store-b = self.pits->last()}
+}
+
+enum Player {
+    A
+    B
+}
+
+interface Pit {
+    +seeds: Integer {read-only}
+    +next (): Pit
+    +yield (player: Player): Integer
+    +capture (player: Player): Integer
+    +take (player: Player, count: Integer = 1): Integer
+}
+
+Game -up> Player: + {read-only}
+Pit -up- Player: -controlledBy {frozen}
+
+Game *-right> Pit: -pits {ordered, dcg}
+(Game, Pit) .up. "position: String"
+
+class House {
+    ~followedBy (next: Pit)
+    ~oppositeTo (other: House)
+}
+
+class Store {
+    ~followedBy (next: Pit)
+}
+
+Pit <|--- House
+Pit <|--- Store
+
+House -> Pit: -next {read-only}
+House -> House: -opposite {read-only}
+Store -> House: -next {read-only}
+
+Game --> Store: -/store-a
+Game --> Store: -/store-b
+
+Game .> House: <<creates>>
+Game .> Store: <<creates>>
+
+interface GameState {
+    ~WAITING: GameState {static}
+    ~SOWING_OWN_ROW: GameState {static}
+    ~SOWING_OPPONENT_ROW: GameState {static}
+    ~FINISHED: GameState {static}
+    +beginTurn (game: Game, pit: Pit)
+    +endTurn (game: Game, pit: Pit)
+    +visit (game: Game, pit: Pit): Integer
+}
+
+GameState <|--- Waiting
+GameState <|--- SowingOwnRow
+GameState <|--- SowingOpponentRow
+GameState <|--- Finished
+
+Game -down----------> GameState
+
+GameState .up(0. House: Pit
+GameState .up(0. Store: Pit
+
+@enduml

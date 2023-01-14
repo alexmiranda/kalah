@@ -1,0 +1,29 @@
+@startuml Kalah
+
+!theme plain
+
+skinparam Style strictuml
+skinparam Linetype ortho
+skinparam handwritten true
+skinparam Nodesep 60
+hide empty description
+
+[*] -> Waiting: play()
+
+Waiting : do / check
+
+Waiting --> SowingOwnRow: accepted
+SowingOwnRow : do / visit
+
+SowingOwnRow -> SowingOpponentRow: continue
+SowingOpponentRow : do / visit
+
+SowingOwnRow --> Waiting: turn complete
+SowingOwnRow --> Finished: game is over
+Finished : do / empty houses
+
+SowingOpponentRow --> Waiting: turn complete
+
+Finished -> [*]
+
+@enduml

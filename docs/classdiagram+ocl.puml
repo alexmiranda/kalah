@@ -1,0 +1,266 @@
+@startuml(id="classdiagram") Kalah
+
+' left to right direction
+
+!theme plain
+
+skinparam Style strictuml
+' skinparam Linetype ortho
+skinparam GroupInheritance 3
+skinparam Ranksep 1
+skinparam Nodesep 120
+
+hide empty members
+
+class Game {
+    -houses: Integer {frozen, positive}
+    -seeds: Integer {frozen, positive}
+    +play (player: Player, house: Integer)
+    ~accept (player: Player, house: Integer, seeds: Integer)
+    ~setState (state: GameState)
+    ~tryCapture (house: Integer)
+    ~switchPlayer ()
+    -next (position: Integer): Integer
+    -opposite (position: Integer): Integer
+    -store (player: Player): Pit
+    -/totalSeeds: Integer
+}
+
+note right of Game
+    context Game
+    inv: self.houses > 0 and self.seeds > 0 and self.houses * self.seeds > 1
+
+    context Game inv Number_of_pits:
+    self.pits->size() = self.houses * 2 + 2
+
+    context Game::next (position: Integer): Integer
+    def: result = (position + 1) % self.pits->size()
+
+    context Game::opposite (position: Integer): Integer
+    def: 
+    let size = self.pits->size()
+    result = (position + (size / 2)) % size
+    
+    context Game::store (player: Player): Pit
+    def:
+    if player = Player.A then
+        result = self.pits[self.pits->size() / 2 - 1]
+    else
+        result = self.pits[self.pits->size() - 1]
+    endif
+    
+    context Game::totalSeeds
+    derive: self.pits->collect(seeds)->sum()
+
+    context Game::accept (player: Player, house: Integer, seeds: Integer)
+    post: self.player = player and self.state^visit(self, ?: Integer, ?: Integer)
+
+    context Game::setState (state: GameState)
+    post: self.state = state
+
+    context Game.tryCapture (house: Integer)
+    pre:
+        house > 0 and house < self.pits->size()
+    inv Can_only_capture_a_house:
+        self.pits[house].isOclKindOf(House)
+        and self.pits[self.opposite(house)].isOclKindOf(House)
+    inv Total_seeds_never_change:
+        self.totalSeeds = self@pre.totalSeeds
+    post:
+        let captured = self.opposite(house).capture(self.player) in
+        self.pits[house]^yield(self.player)
+        and self.store(self.player).takeAll(self.player, captured + 1)
+        and self.pits[house].seeds = 0
+        and self.opposite(house).seeds = 0
+        and self.store(self.player).seeds = self@pre.store(self.player).seeds + capctured + 1
+    
+    context Game::switchPlayer ()
+    post: self.player <> self@pre.player
+end note
+
+interface GameState {
+    ~NOT_STARTED: GameState {static}
+    ~SOWING_OWN_ROW: GameState {static}
+    ~SOWING_OPPONENT_ROW: GameState {static}
+    ~WAITING: GameState {static}
+    ~FINISHED: GameState {static}
+
+    #beginTurn (game: Game, player: Player, house: Integer)
+    #visit (game: Game, pit: Integer, seeds: Integer): Integer
+    #endTurn (game: Game, pit: Integer)
+    #winner (game: Game)
+}
+
+class NotStarted
+
+note bottom of NotStarted
+    context NotStarted::beginTurn (game: Game, player: Player, house: Integer)
+    pre Either_player_can_start: { Player.A, Player.B }.exists(player)
+    pre No_player_selected_yet: game.player.oclIsUndefined = true
+    pre House_must_contain_seeds: game.pits[house].seeds > 0
+    inv Can_only_play_on_a_house_controlled_by_player:
+        game.pits[house].isOclKindOf(House)
+        and game.pits[house].controlledBy = player
+    post Player_must_be_selected: game.player.isOclUndefined = false
+    post House_must_have_yielded_seeds: game.pits[house]^yield()
+    post Move_is_accepted: game^accept (player, house, game@pre.pits[houses].seeds)
+
+    context NotStarted::winner (game: Game)
+    post: result->isEmpty() = true
+end note
+
+class SowingOwnRow
+
+note bottom of SowingOwnRow
+    context SowingOwnRow::visit (game: Game, pit: Integer, seeds: Integer)
+    pre:
+        pit > 0 and pit < game.pits->size() and seeds > 0
+    inv Can_only_visit_own_player_houses_and_store:
+        game.pits[pit].controlledBy = game.player
+    post:
+        game.pits[pit]^take(game.player, seeds)
+        and game.pits[pit].isOclKindOf(Store) implies
+            game^setState(GameState.SowingOpponentRow)
+        and result = seeds@pre - 1
+    
+    context SowingOwnRow::endTurn (game: Game, pit: Integer)
+    pre:
+        pit > 0 and pit < game.pits->size()
+    inv Can_only_end_turn_on_own_player_house_or_store:
+        game.pits[pit].controlledBy = game.player
+    post:
+        (game.pits[pit].isOclKindOf(House) and game.pits[pit].seeds = 1) implies game^tryCapture(pit)
+        and (game.pits[pit].isOclKindOf(House) implies game.player <> game@pre.player)
+        and (game.pits[pit].isOclKindOf(Store) implies game.player = game@pre.player)
+        and game.state = GameState.WAITING
+end note
+
+class SowingOpponentRow
+
+note bottom of SowingOpponentRow
+    context SowingOpponentRow::visit (game: Game, pit: Integer, seeds: Integer)
+    pre:
+        pit > 0 and pit < game.pits->size() and seeds > 0
+    inv Can_only_visit_opponent_player_houses_and_store:
+        game.pits[pit].controlledBy <> game.player
+    post:
+        game.pits[pits].isOclKindOf(House) implies
+            (game.pits[pits]^take(game.player, seeds) and result = seeds - 1)
+        and game.pits[pits].isOclKindOf(Store) implies
+            (game.state = GameState.SowingOwnRow and result = seeds)
+    
+    context SowingOpponentRow::endTurn (game: Game, pit: Integer)
+    pre: pit > 0 and pit < game.pits->size()
+    inv Can_only_end_turn_on_opponent_player_role:
+        game.pits[pit].controlledBy <> game.player
+    post:
+        game.state = GameState.Waiting
+        and game^switchPlayer()
+        and game.player <> game@pre.player
+end note
+
+class Waiting
+
+note bottom of Waiting
+    context Waiting::beginTurn (game: Game, player: Player, house: Integer)
+    pre:
+        game.player = player
+    inv Can_only_play_on_a_house_controlled_by_player:
+        game.pits[house].isOclKindOf(House)
+        and game.pits[house].controlledBy(player)
+    post:
+        game.pits[house]^yield(player)
+        and game^accept(player, house, game@pre.pits[houses].seeds)
+    
+    context Waiting::winner (game: Game)
+    post: result->isEmpty() = true
+end note
+
+class Finished
+
+note bottom of Finished
+    context Finished::winner (game: Game)
+    post: result = game.player
+end note
+
+SowingOwnRow -[hidden]right- SowingOpponentRow
+SowingOpponentRow -[hidden]right- Waiting
+
+abstract Pit {
+    -seeds: Integer {read-only, positive}
+    #yield (player: Player): Integer
+    #take (player: Player, seeds: Integer): Integer
+    #capture (player: Player): Integer
+    #takeAll (player: Player, seeds: Integer): Integer
+}
+
+together {
+    class House {
+    }
+
+    class Store {
+    }
+}
+
+note right of House
+    context House::yield (player: Player): Integer
+    pre: self.controlledBy = player and self.seeds > 0
+    post: self.seeds = 0 and result = self@pre.seeds
+
+    context House::take (player: Player, seeds: Integer): Integer
+    pre: self.controlledBy = player and seeds > 0
+    post: self.seeds = self@pre.seeds + 1 and result = self@pre.seeds
+
+    context House::capture (player: Player)
+    pre: self.controlledBy = player
+    post: self.seeds = 0 and result = self@pre.seeds
+end note
+
+note right of Store
+    context Store::takeAll (player: Player, seeds: Integer)
+    pre: self.player <> player and seeds > 0
+    post: self.seeds = self@pre.seeds + seeds
+end note
+
+House -[hidden]right- Store
+
+enum Player {
+    A
+    B
+}
+
+<> diamond
+
+note right of diamond
+    context Game inv Pit_configuration:
+    self.pits->subOrderedSet(0, self.houses - 1)
+        ->forAll(p | p.oclIsKindOf(House) and p.controlledBy = Player.A)
+    and self.pits->at(self.houses).oclIsKindOf(Store)
+    and self.pits->at(self.houses).controlledBy = Player.A
+    and self.pits->subOrderedSet(self.houses + 1, self.houses * 2)
+        ->forAll(p | p.oclIsKindOf(House) and p.controlledBy = Player.B)
+    and self.pits->last().oclIsKindOf(Store)
+    and self.pits->last().controlledBy = Player.B
+end note
+
+Game "1" *-- diamond: -pits {ordered}
+
+diamond -- "2..*" House
+diamond -- "2" Store
+
+House --|> Pit
+Store --|> Pit
+
+Pit -left-> Player: controlledBy
+Game -down-> Player
+
+Game -left-> GameState: state
+
+NotStarted -right--|> GameState
+Finished -right-|> GameState
+
+SowingOwnRow -up-|> GameState
+SowingOpponentRow -up--|> GameState
+Waiting -up--|> GameState
+
+@enduml

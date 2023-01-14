@@ -1,0 +1,70 @@
+@startuml Game
+
+!theme plain
+
+' allowmixing
+skinparam Style strictuml
+' skinparam GroupInheritance 2
+' skinparam ComponentStyle uml2
+skinparam Linetype ortho
+hide empty members
+skinparam Ranksep 70
+skinparam Nodesep 70
+
+together {
+    class Game
+    interface GameState
+
+    class position as "position: String"
+    Game .[norank] position
+    Game -left-> GameState: state
+}
+
+position *--> "2..*" House
+position *--> "2" Store
+interface Pit
+
+(position, House) . (position, Store): {or}
+
+House --|> Pit
+House ----> Player: ~controlledBy
+House --> Pit: -next
+
+Store --|> Pit
+Store ----> Player: ~controlledBy
+Store --> Pit: -next
+
+enum Player {
+    A
+    B
+}
+
+GameState <|-- Waiting
+GameState <|-- SowingOwnRow
+GameState <|-- SowingOpponentRow
+GameState <|-- Finished
+' SowingOwnRow <|-- CapturingOpponentHouse
+
+Game ----> Player: -player
+
+Game : -houses: Integer {positive}
+Game : -seeds: Integer {positive}
+Game : +play (position: String)
+Game : ~accept (:Pit, seeds: Integer)
+
+GameState : ~WAITING: GameState {static}
+GameState : ~SOWING_OWN_ROW: GameState {static}
+GameState : ~SOWING_OPPONENT_ROW: GameState {static}
+GameState : ~FINISHED: GameState {static}
+GameState : +beginTurn (:Pit)
+GameState : +visit (:Pit, seeds: Integer): Integer
+GameState : +endTurn (:Pit)
+
+Pit : +yield(:Player): Integer
+Pit : +take(n: Integer): Integer
+Pit : +next(): Pit
+
+House : ~seeds: Integer
+Store : ~seeds: Integer
+
+@enduml

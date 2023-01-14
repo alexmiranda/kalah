@@ -1,0 +1,67 @@
+@startuml(id="objectdiagram") Kalah
+
+skinparam Style strictuml
+' skinparam Linetype ortho
+
+!$seeds = 6
+!$houses = 6
+
+object "game: Game" as game {
+    houses = $houses
+    seeds = $seeds
+}
+
+!$pits = { "pits": [
+    {"name": "pit0", "type": "House", "controlledBy": "Player.A"},
+    {"name": "pit1", "type": "House", "controlledBy": "Player.A"},
+    {"name": "pit2", "type": "House", "controlledBy": "Player.A"},
+    {"name": "pit3", "type": "House", "controlledBy": "Player.A"},
+    {"name": "pit4", "type": "House", "controlledBy": "Player.A"},
+    {"name": "pit5", "type": "House", "controlledBy": "Player.A"},
+    {"name": "pit6", "type": "Store", "controlledBy": "Player.A"},
+    {"name": "pit7", "type": "House", "controlledBy": "Player.B"},
+    {"name": "pit8", "type": "House", "controlledBy": "Player.B"},
+    {"name": "pit9", "type": "House", "controlledBy": "Player.B"},
+    {"name": "pit10", "type": "House", "controlledBy": "Player.B"},
+    {"name": "pit11", "type": "House", "controlledBy": "Player.B"},
+    {"name": "pit12", "type": "House", "controlledBy": "Player.B"},
+    {"name": "pit13", "type": "Store", "controlledBy": "Player.B"}
+]}
+
+map ":Pit[]" as pits {
+    0 =>
+    1 =>
+    2 =>
+    3 =>
+    4 =>
+    5 =>
+    6 =>
+    7 =>
+    8 =>
+    9 =>
+    10 =>
+    11 =>
+    12 =>
+    13 =>
+}
+
+!$i = 0
+!foreach $pit in $pits.pits
+    object ":$pit.type" as $pit.name {
+        seeds = $seeds
+        controlledBy = $pit.controlledBy
+    }
+
+    pits::$i --> $pit.name
+    !$i = $i + 1
+!endfor
+
+
+game::pits *-- pits
+
+object "state: NotStarted" as state
+
+game *--> state
+
+
+@enduml
